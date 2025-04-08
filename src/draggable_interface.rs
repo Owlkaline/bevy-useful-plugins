@@ -4,7 +4,9 @@ use bevy::{
 };
 
 #[derive(Component)]
-pub struct DraggableInterface;
+pub struct DraggableInterface {
+  scale_factor: f32,
+}
 
 #[derive(Component)]
 struct Selected;
@@ -36,11 +38,11 @@ fn mouse_up(
 
 fn zoom(
   mut scroll_event: EventReader<MouseWheel>,
-  mut transforms: Query<&mut Transform, With<Selected>>,
+  mut transforms: Query<(&mut Transform, &DraggableInterface), With<Selected>>,
 ) {
   for scroll in scroll_event.read() {
-    for mut transform in &mut transforms {
-      transform.scale += scroll.y;
+    for (mut transform, draggable) in &mut transforms {
+      transform.scale += scroll.y * draggable.scale_factor;
     }
   }
 }
@@ -75,5 +77,22 @@ fn remove_selected_on<E>() -> impl Fn(Trigger<E>, Commands) {
   move |trigger, mut commands| {
     commands.entity(trigger.entity()).insert(PendingUnselect);
     //    commands.entity(trigger.entity()).remove::<Selected>();
+  }
+}
+
+impl DraggableInterface {
+  pub fn new() -> DraggableInterface {
+    DraggableInterface::default()
+  }
+
+  pub fn with_scale_factor(mut self, factor: f32) -> DraggableInterface {
+    self.scale_factor = factor;
+    self
+  }
+}
+
+impl Default for DraggableInterface {
+  fn default() -> Self {
+    DraggableInterface { scale_factor: 1.0 }
   }
 }
