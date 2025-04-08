@@ -35,13 +35,13 @@ fn setup(
     ))),
     MeshMaterial2d(materials.add(ColorMaterial::from_color(YELLOW_400))),
     Transform::from_translation(Vec3::splat(50.0)).with_scale(Vec3::splat(50.0)),
-    DraggableInterface,
+    DraggableInterface::new(),
   ));
 
   commands.spawn((
-    Mesh2d(meshes.add(RegularPolygon::new(1.0, 6))),
+    Mesh2d(meshes.add(RegularPolygon::new(50.0, 6))),
     MeshMaterial2d(materials.add(ColorMaterial::from_color(BLUE_400))),
-    Transform::from_translation(Vec3::splat(-50.0)).with_scale(Vec3::splat(50.0)),
-    DraggableInterface,
+    Transform::from_translation(Vec3::splat(-50.0)),
+    DraggableInterface::new().with_scale_factor(1.0 / 50.0),
   ));
 }
