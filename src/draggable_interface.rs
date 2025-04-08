@@ -63,8 +63,6 @@ fn get_dragged(trigger: Trigger<Pointer<Drag>>, mut transform: Query<&mut Transf
   }
 }
 
-fn drag_end(trigger: Trigger<Pointer<DragDrop>>) {}
-
 fn insert_selected_on<E>() -> impl Fn(Trigger<E>, Query<Entity, With<Selected>>, Commands) {
   move |trigger, other_entities_selected, mut commands| {
     if other_entities_selected.iter().count() == 0 {
@@ -73,10 +71,13 @@ fn insert_selected_on<E>() -> impl Fn(Trigger<E>, Query<Entity, With<Selected>>,
   }
 }
 
-fn remove_selected_on<E>() -> impl Fn(Trigger<E>, Commands) {
-  move |trigger, mut commands| {
-    commands.entity(trigger.entity()).insert(PendingUnselect);
-    //    commands.entity(trigger.entity()).remove::<Selected>();
+fn remove_selected_on<E>() -> impl Fn(Trigger<E>, Res<ButtonInput<MouseButton>>, Commands) {
+  move |trigger, mouse_buttons, mut commands| {
+    if mouse_buttons.pressed(MouseButton::Left) {
+      commands.entity(trigger.entity()).insert(PendingUnselect);
+    } else {
+      commands.entity(trigger.entity()).remove::<Selected>();
+    }
   }
 }
 
