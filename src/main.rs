@@ -1,16 +1,20 @@
 use std::time::Duration;
 
+use ::twitcheventsub::TwitchEvent;
 use bevy::{
-  color::palettes::tailwind::{BLUE_400, YELLOW_400},
+  color::palettes::tailwind::{BLUE_400, RED_400, YELLOW_400},
   input::keyboard::KeyboardInput,
   math::VectorSpace,
   prelude::*,
 };
 use clock::{AddTime, Clock, MakeClock};
 use draggable_interface::DraggableInterface;
+use twitcheventsub::ManageTwitch;
 
 mod clock;
 mod draggable_interface;
+mod particles;
+mod twitcheventsub;
 
 fn main() {
   let mut app = App::new();
@@ -21,9 +25,11 @@ fn main() {
       MeshPickingPlugin,
       draggable_interface::plugin,
       clock::plugin,
+      particles::plugin,
+      twitcheventsub::plugin,
     ))
     .add_systems(Startup, setup)
-    .add_systems(Update, input);
+    .add_systems(Update, (input, handle_twitch));
 
   app.run();
 }
@@ -59,16 +65,76 @@ fn setup(
     DraggableInterface::new().with_scale_factor(0.25),
   ));
 
-  //commands
-  //  .spawn((
-  //    Mesh2d(meshes.add(Rectangle::new(80.0, 20.0))),
-  //    DraggableInterface::new().with_scale_factor(0.25),
-  //  ))
-  //  .with_child((Clock::new(120.0)));
+  commands
+    .spawn((
+      Node {
+        flex_direction: FlexDirection::Column,
+        align_items: AlignItems::Start,
+        justify_content: JustifyContent::Start,
+        border: UiRect::all(Val::Percent(2.0)),
+        width: Val::Percent(100.0),
+        height: Val::Percent(100.0),
+        row_gap: Val::Px(20.0),
+        ..Default::default()
+      },
+      PickingBehavior::IGNORE,
+    ))
+    .with_children(|parent| {
+      parent
+        .spawn((
+          Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+          },
+          BackgroundColor(RED_400.into()),
+        ))
+        .observe(send_event_on_click(ManageTwitch::Connect))
+        .with_child(Text::new("Connect Twitch"));
+
+      parent
+        .spawn((
+          Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+          },
+          BackgroundColor(RED_400.into()),
+        ))
+        .observe(send_event_on_click(ManageTwitch::Disconnect(Some(
+          "OwlBot shutting down!".to_string(),
+        ))))
+        .with_child(Text::new("Disconnect Twitch"));
+    });
+}
+
+fn handle_twitch(
+  mut twitch_events: EventReader<TwitchEvent>,
+  mut twitch_manager: EventWriter<ManageTwitch>,
+) {
+  for event in twitch_events.read() {
+    match event {
+      TwitchEvent::Ready => {
+        twitch_manager.send(ManageTwitch::SendChatMsg(
+          "OwlBot reporting for duty!".to_string(),
+        ));
+      }
+      TwitchEvent::Finished => {}
+      _ => {}
+    }
+  }
 }
 
 fn input(buttons: Res<ButtonInput<KeyCode>>, mut commands: Commands) {
   if buttons.just_pressed(KeyCode::KeyP) {
     commands.trigger(AddTime::new(10.0));
+  }
+}
+
+fn send_event_on_click<E: Event + Clone>(
+  event: E,
+) -> impl Fn(Trigger<Pointer<Down>>, EventWriter<E>) {
+  move |_trigger, mut event_writer| {
+    event_writer.send(event.clone());
   }
 }

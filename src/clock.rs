@@ -50,7 +50,6 @@ fn update_font_size(
       commands
         .entity(entity)
         .insert(TextFont::from_font_size(new_font_size));
-      dbg!("New font size: {}", new_font_size);
     }
   }
 }
