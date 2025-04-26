@@ -98,6 +98,7 @@ fn twitch_thread(sender: Sender<TwitchEvent>, new_commands: Receiver<ManageTwitc
         .generate_new_token_if_none(true)
         .add_subscriptions([
           Subscription::AdBreakBegin,
+          Subscription::ChannelPointsCustomRewardRedeem,
           Subscription::ChannelFollow,
           Subscription::ChannelNewSubscription,
           Subscription::ChannelResubscription,

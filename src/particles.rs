@@ -1,7 +1,12 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::view::RenderLayers};
 use bevy_hanabi::prelude::*;
 
 use crate::draggable_interface::DraggableInterface;
+
+pub const PARTICLE_LAYER: usize = 2;
+pub const UI_LAYER: usize = 1;
+
+pub mod fireworks;
 
 #[derive(Resource)]
 pub struct Particles {
@@ -9,9 +14,8 @@ pub struct Particles {
 }
 
 pub(super) fn plugin(app: &mut App) {
-  dbg!("plugin used");
   app
-    .add_plugins(HanabiPlugin)
+    .add_plugins((HanabiPlugin, fireworks::plugin))
     .add_systems(Startup, (create_click_effect))
     .add_systems(Update, mouse_click);
 }
@@ -19,20 +23,22 @@ pub(super) fn plugin(app: &mut App) {
 fn mouse_click(
   mouse_event: Res<ButtonInput<MouseButton>>,
   window: Single<&Window>,
-  mut particle_effect: Query<(&mut Transform, &mut EffectSpawner), With<ParticleEffect>>,
+  mut particle_effect: Query<(&mut Transform, &mut EffectSpawner, &Name), With<ParticleEffect>>,
   mut commands: Commands,
 ) {
   let position = window.cursor_position();
   let resolution = window.resolution.size();
 
   if mouse_event.just_pressed(MouseButton::Left) {
-    for (mut transform, mut spawner_settings) in &mut particle_effect {
-      if let Some(position) = position {
-        let pos = position - resolution * 0.5;
-        transform.translation.x = pos.x;
-        transform.translation.y = resolution.y * 0.5 - position.y;
+    for (mut transform, mut spawner_settings, name) in &mut particle_effect {
+      if name.contains("ClickEffect") {
+        if let Some(position) = position {
+          let pos = position - resolution * 0.5;
+          transform.translation.x = pos.x;
+          transform.translation.y = resolution.y * 0.5 - position.y;
+        }
+        spawner_settings.reset();
       }
-      spawner_settings.reset();
     }
   }
 }
@@ -75,7 +81,7 @@ fn setup(mut effects: ResMut<Assets<EffectAsset>>, mut commands: Commands) {
     // Move the expression module into the asset
     module,
   )
-  .with_name("MyEffect")
+  .with_name("ClickEffect")
   .init(particle_size)
   .init(init_pos)
   .init(init_vel)
@@ -157,9 +163,10 @@ fn create_click_effect(mut effects: ResMut<Assets<EffectAsset>>, mut commands: C
 
   let effect_handle = effects.add(effect);
   commands.spawn((
+    Name::new("ClickEffect"),
     ParticleEffect::new(effect_handle.clone()),
     Transform::from_translation(Vec3::Y),
-    DraggableInterface::new(),
+    //RenderLayers::layer(UI_LAYER),
   ));
 
   commands.insert_resource(Particles {
