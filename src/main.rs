@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{io::Read, net::TcpListener, process::Command, time::Duration};
 
 use ::twitcheventsub::TwitchEvent;
 use bevy::{
@@ -9,17 +9,20 @@ use bevy::{
   prelude::*,
   render::view::RenderLayers,
 };
+use bevy_tunnel::{ConnectTunnel, TunnelEvent};
 use clock::{AddTime, Clock, MakeClock};
 use draggable_interface::DraggableInterface;
+use enable_disable_button::MakeToggleButton;
 use particles::{fireworks::CreateFireworks, PARTICLE_LAYER, UI_LAYER};
-use twitcheventsub::ManageTwitch;
+//use twitcheventsub::ManageTwitch;
 
 mod clock;
 mod compression;
 mod draggable_interface;
+mod enable_disable_button;
 mod expire;
 mod particles;
-mod twitcheventsub;
+//mod twitcheventsub;
 
 #[derive(Component)]
 pub struct InteractiveButtonsUi;
@@ -44,10 +47,12 @@ fn main() {
       draggable_interface::plugin,
       clock::plugin,
       particles::plugin,
-      twitcheventsub::plugin,
+      // twitcheventsub::plugin,
+      bevy_tunnel::plugin,
     ))
+    .add_event::<TwitchEvent>()
     .add_systems(Startup, setup)
-    .add_systems(Update, (input, handle_twitch, spawn_fireworks));
+    .add_systems(Update, (input, handle_twitch, handle_kofi, spawn_fireworks));
 
   app.run();
 }
@@ -128,7 +133,7 @@ fn setup(
         row_gap: Val::Px(20.0),
         ..Default::default()
       },
-      PickingBehavior::IGNORE,
+      Pickable::IGNORE,
       InteractiveButtonsUi,
     ))
     .with_children(|parent| {
@@ -140,23 +145,10 @@ fn setup(
             ..default()
           },
           BackgroundColor(RED_400.into()),
+          //  MakeToggleButton::new("Kofi", ConnectTunnel, ConnectTunnel),
         ))
-        .observe(send_event_on_click(ManageTwitch::Connect))
-        .with_child(Text::new("Connect Twitch"));
-
-      parent
-        .spawn((
-          Node {
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-          },
-          BackgroundColor(RED_400.into()),
-        ))
-        .observe(send_event_on_click(ManageTwitch::Disconnect(Some(
-          "OwlBot shutting down!".to_string(),
-        ))))
-        .with_child(Text::new("Disconnect Twitch"));
+        .observe(send_event_on_click(ConnectTunnel))
+        .with_child(Text::new("Connect Kofi"));
 
       parent
         .spawn((
@@ -175,11 +167,7 @@ fn setup(
 fn spawn_fireworks(mut twitch_events: EventReader<TwitchEvent>, mut commands: Commands) {
   for event in twitch_events.read() {
     match event {
-      TwitchEvent::PointsCustomRewardRedeem(redeem) => {
-        if redeem.reward.title.contains("Fireworks") {
-          commands.trigger(CreateFireworks::new(15.0));
-        }
-      }
+      TwitchEvent::PointsCustomRewardRedeem(redeem) => {}
       TwitchEvent::NewSubscription(_)
       | TwitchEvent::Resubscription(_)
       | TwitchEvent::GiftSubscription(_) => {
@@ -190,13 +178,37 @@ fn spawn_fireworks(mut twitch_events: EventReader<TwitchEvent>, mut commands: Co
   }
 }
 
+fn handle_kofi(
+  mut tunnel_events: EventReader<TunnelEvent>,
+  mut twitch_events: EventWriter<TwitchEvent>,
+  mut commands: Commands,
+) {
+  for tunnel_event in tunnel_events.read() {
+    match tunnel_event {
+      TunnelEvent::Kofi(kofi_donation) => {
+        println!(
+          "{} donated €{}!\n",
+          kofi_donation.from_name, kofi_donation.amount
+        );
+        commands.trigger(CreateFireworks::new(60.0));
+      }
+      TunnelEvent::Twitch(twitch_event) => {
+        twitch_events.write(twitch_event.to_owned());
+      }
+    }
+  }
+}
+
 fn handle_twitch(
   mut twitch_events: EventReader<TwitchEvent>,
-  mut twitch_manager: EventWriter<ManageTwitch>,
+  // mut twitch_manager: EventWriter<ManageTwitch>,
   mut commands: Commands,
 ) {
   for event in twitch_events.read() {
     match event {
+      TwitchEvent::ChatMessage(msg) => {
+        println!("Message:  {:?}", msg.message.text);
+      }
       TwitchEvent::Ready => {
         //twitch_manager.send(ManageTwitch::SendChatMsg(
         //  "OwlBot reporting for duty!".to_string(),
@@ -230,13 +242,15 @@ fn input(
 
 fn send_event_on_click<E: Event + Clone>(
   event: E,
-) -> impl Fn(Trigger<Pointer<Down>>, EventWriter<E>) {
+) -> impl Fn(Trigger<Pointer<Pressed>>, EventWriter<E>) {
   move |_trigger, mut event_writer| {
     event_writer.send(event.clone());
   }
 }
 
-fn trigger_event_on_click<E: Event + Clone>(event: E) -> impl Fn(Trigger<Pointer<Down>>, Commands) {
+fn trigger_event_on_click<E: Event + Clone>(
+  event: E,
+) -> impl Fn(Trigger<Pointer<Pressed>>, Commands) {
   move |_trigger, mut commands| {
     commands.trigger(event.clone());
   }

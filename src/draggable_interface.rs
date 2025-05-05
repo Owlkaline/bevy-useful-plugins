@@ -49,7 +49,7 @@ fn zoom(
 
 fn draggable_added(trigger: Trigger<OnAdd, DraggableInterface>, mut commands: Commands) {
   commands
-    .entity(trigger.entity())
+    .entity(trigger.target())
     .observe(get_dragged)
     .observe(insert_selected_on::<Pointer<DragEnd>>())
     .observe(insert_selected_on::<Pointer<Over>>())
@@ -57,7 +57,7 @@ fn draggable_added(trigger: Trigger<OnAdd, DraggableInterface>, mut commands: Co
 }
 
 fn get_dragged(trigger: Trigger<Pointer<Drag>>, mut transform: Query<&mut Transform>) {
-  if let Ok(mut transform) = transform.get_mut(trigger.entity()) {
+  if let Ok(mut transform) = transform.get_mut(trigger.target()) {
     transform.translation.x += trigger.delta.x;
     transform.translation.y -= trigger.delta.y;
   }
@@ -66,7 +66,7 @@ fn get_dragged(trigger: Trigger<Pointer<Drag>>, mut transform: Query<&mut Transf
 fn insert_selected_on<E>() -> impl Fn(Trigger<E>, Query<Entity, With<Selected>>, Commands) {
   move |trigger, other_entities_selected, mut commands| {
     if other_entities_selected.iter().count() == 0 {
-      commands.entity(trigger.entity()).insert(Selected);
+      commands.entity(trigger.target()).insert(Selected);
     }
   }
 }
@@ -74,9 +74,9 @@ fn insert_selected_on<E>() -> impl Fn(Trigger<E>, Query<Entity, With<Selected>>,
 fn remove_selected_on<E>() -> impl Fn(Trigger<E>, Res<ButtonInput<MouseButton>>, Commands) {
   move |trigger, mouse_buttons, mut commands| {
     if mouse_buttons.pressed(MouseButton::Left) {
-      commands.entity(trigger.entity()).insert(PendingUnselect);
+      commands.entity(trigger.target()).insert(PendingUnselect);
     } else {
-      commands.entity(trigger.entity()).remove::<Selected>();
+      commands.entity(trigger.target()).remove::<Selected>();
     }
   }
 }

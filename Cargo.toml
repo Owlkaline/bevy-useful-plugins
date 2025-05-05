@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.16.0", features = ["dynamic_linking", "file_watcher"] }
+bevy = { version = "0.16", features = ["dynamic_linking", "file_watcher"] }
 twitcheventsub = { path = "../TwitchEventSub-rs/twitcheventsub", features = [
   "bevy",
 ] }
 rand = "*"
-bevy_hanabi = "0.16"
+bevy_hanabi = { git = "https://github.com/djeedai/bevy_hanabi.git" } #"0.15.1"
+bevy-tunnel = { path = "../bevy-kofi-plugin" }
 
 [profile.dev.package."*"]
 opt-level = 3

@@ -38,12 +38,12 @@ fn add_time(trigger: Trigger<AddTime>, mut clocks: Query<&mut Clock>) {
 }
 
 fn update_font_size(
-  mut clocks: Query<(Entity, &Parent, &mut TextFont), With<Clock>>,
+  mut clocks: Query<(Entity, &ChildOf, &mut TextFont), With<Clock>>,
   mut transforms: Query<&mut Transform>,
   mut commands: Commands,
 ) {
-  for (entity, parent, mut text_font) in &mut clocks {
-    if let Ok(mut transform) = transforms.get_mut(parent.get()) {
+  for (entity, child_of, mut text_font) in &mut clocks {
+    if let Ok(mut transform) = transforms.get_mut(child_of.parent()) {
       let new_font_size = text_font.font_size * transform.scale.x;
       transform.scale = Vec3::splat(1.0);
 
@@ -83,7 +83,7 @@ fn make_clock(
   mut commands: Commands,
 ) {
   commands
-    .entity(trigger.entity())
+    .entity(trigger.target())
     .insert((Mesh2d(meshes.add(Rectangle::new(80.0, 20.0))),))
     .with_child(Clock::new(120.0))
     .remove::<MakeClock>();
@@ -91,7 +91,7 @@ fn make_clock(
 
 fn add_clock(trigger: Trigger<OnAdd, Clock>, mut commands: Commands) {
   commands
-    .entity(trigger.entity())
+    .entity(trigger.target())
     .insert(Text2d::new("00:00:00"));
 }
 
