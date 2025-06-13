@@ -9,8 +9,10 @@ use std::{
 };
 
 use bevy::prelude::*;
-
-use twitcheventsub::*;
+use twitcheventsub::{
+  prelude::{twitcheventsub_tokens::TokenHandler, *},
+  ResponseType, TwitchEventSubApi,
+};
 
 #[derive(Event, Clone)]
 pub enum ManageTwitch {
@@ -89,65 +91,72 @@ fn send_twitch_events(twitch: Res<TwitchResource>, mut twitch_events: EventWrite
 
 fn twitch_thread(sender: Sender<TwitchEvent>, new_commands: Receiver<ManageTwitch>) {
   thread::spawn(move || {
-    if let Ok(keys) = TwitchKeys::from_secrets_env(vec![".secrets.env".to_string()]) {
-      if let Ok(mut twitch) = TwitchEventSubApi::builder(keys)
-        .enable_irc("owlkalinevt", "owlkalinevt")
-        .auto_save_load_created_tokens(".user_token", ".refresh_token")
-        .generate_access_token_on_expire(true)
-        .set_redirect_url("http://localhost:3000")
-        .generate_new_token_if_none(true)
-        .add_subscriptions([
-          Subscription::AdBreakBegin,
-          Subscription::ChannelPointsCustomRewardRedeem,
-          Subscription::ChannelFollow,
-          Subscription::ChannelNewSubscription,
-          Subscription::ChannelResubscription,
-          Subscription::ChannelGiftSubscription,
-          Subscription::ChannelCheer,
-          Subscription::ChannelRaid,
-          Subscription::ChatMessage,
-          Subscription::PermissionIRCRead,
-          Subscription::PermissionIRCWrite,
-          Subscription::PermissionReadModerator,
-        ])
-        .build()
-      {
-        'thread: loop {
-          match twitch.receive_single_message(Duration::from_millis(1)) {
-            Some(response) => match response {
-              ResponseType::Event(event) => {
-                if let Err(err) = sender.send(event) {
-                  dbg!(err);
-                  break 'thread;
-                }
-              }
-              ResponseType::Ready => {
-                let _ = sender.send(TwitchEvent::Ready);
-              }
-              _ => {}
-            },
-            None => {}
-          }
-
-          for new_command in new_commands.try_iter() {
-            match new_command {
-              ManageTwitch::Disconnect(exit_msg) => {
-                if let Some(msg) = exit_msg {
-                  let _ = twitch.send_chat_message(msg);
-                }
-                // Do exit twitch things
-                let _ = sender.send(TwitchEvent::Finished);
-
-                // stop this thread
+    //if let Ok(keys) = TwitchKeys::from_secrets_env(vec![".secrets.env".to_string()]) {
+    let tokens = TokenHandler::builder().build();
+    if let Ok(mut twitch) = TwitchEventSubApi::builder(tokens)
+      .enable_irc()
+      .add_subscriptions([
+        //Subscription::AdBreakBegin,
+        //Subscription::ChannelPointsCustomRewardRedeem,
+        //Subscription::ChannelFollow,
+        //Subscription::ChannelNewSubscription,
+        //Subscription::ChannelResubscription,
+        //Subscription::ChannelGiftSubscription,
+        //Subscription::ChannelCheer,
+        //Subscription::ChannelRaid,
+        Subscription::PermissionWriteToChat,
+        Subscription::PermissionReadChatters,
+        Subscription::PermissionIRCRead,
+        Subscription::PermissionIRCWrite,
+        Subscription::PermissionReadModerator,
+      ])
+      .build("owlkalinevt")
+    {
+      let broadcaster = twitch.broadcaster().to_owned();
+      'thread: loop {
+        match twitch.receive_single_message(Duration::from_millis(1)) {
+          Some(response) => match response {
+            ResponseType::Event(event) => {
+              if let Err(err) = sender.send(event) {
+                dbg!(err);
                 break 'thread;
               }
-              ManageTwitch::SendChatMsg(msg) => {
-                let _ = twitch.send_chat_message(msg);
-              }
-              _ => {}
             }
-          }
+            ResponseType::Ready => {
+              let _ = sender.send(TwitchEvent::Ready);
+              let _ = twitch
+                .api()
+                .send_chat_message(&broadcaster.id, "Test message from bot account?");
+              break 'thread;
+            }
+            _ => {}
+          },
+          None => {}
         }
+
+        //let _ = twitch
+        //  .api()
+        //  .send_chat_message(&broadcaster.id, "Test message from bot account?");
+        //break 'thread;
+
+        //for new_command in new_commands.try_iter() {
+        //  match new_command {
+        //    ManageTwitch::Disconnect(exit_msg) => {
+        //      if let Some(msg) = exit_msg {
+        //        let _ = twitch.api().send_chat_message(&broadcaster.id, &msg);
+        //      }
+        //      // Do exit twitch things
+        //      let _ = sender.send(TwitchEvent::Finished);
+
+        //      // stop this thread
+        //      break 'thread;
+        //    }
+        //    ManageTwitch::SendChatMsg(msg) => {
+        //      let _ = twitch.api().send_chat_message(&broadcaster.id, &msg);
+        //    }
+        //    _ => {}
+        //  }
+        //}
       }
     };
   });
